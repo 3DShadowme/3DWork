@@ -1,0 +1,9 @@
+Package: com.yourname.filamentmanager
+Name: FilamentManager
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: 3D 打印耗材管理（巨魔可直接安装）
+Maintainer: YourName <you@example.com>
+Author: YourName <you@example.com>
+Section: Utilities
+Tag: role::program

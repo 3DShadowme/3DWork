@@ -1,0 +1,57 @@
+name: Build TIPA
+
+# 每次 push 到主分支，自动用 Theos 在 Linux 编译原生 UIKit App，并产出巨魔可用的 .tipa
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Theos + iOS SDK
+        uses: Randomblock1/theos-action@v1
+        with:
+          theos-sdks: 'https://github.com/theos/sdks'
+
+      - name: Install packaging tools
+        run: sudo apt-get update && sudo apt-get install -y dpkg-dev zip
+
+      - name: Build .tipa
+        run: cd app && make package FINALPACKAGE=1
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FilamentManager.tipa
+          path: app/FilamentManager.tipa
+
+      # 每次 push 到主分支，更新一个始终最新的发布，方便直接下载 .tipa
+      - name: Delete old rolling release
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        continue-on-error: true
+        uses: dev-drprasad/delete-tag-and-release@v1
+        with:
+          delete_release: true
+          tag_name: latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish rolling release
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: 自动构建 (Latest)
+          files: app/FilamentManager.tipa
+          body: |
+            每次 push 到主分支自动重建。
+            用 **TrollStore** 打开 `FilamentManager.tipa` 即可安装（支持 iOS 14–16.6.1，含你的 15.4）。
