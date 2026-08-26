@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="耗材管理">
+<meta name="theme-color" content="#f2f2f7">
+<link rel="apple-touch-icon" href="icon.png">
+<title>3D 打印耗材管理</title>
+<style>
+  :root{
+    --bg:#f2f2f7; --card:#ffffff; --sep:rgba(60,60,67,0.18);
+    --label:#1c1c1e; --sub:#8e8e93; --blue:#0a84ff; --red:#ff3b30;
+    --green:#34c759; --gray:#e5e5ea; --tint:rgba(60,60,67,0.08);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",
+                "PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg); color:var(--label);
+    -webkit-font-smoothing:antialiased; overscroll-behavior-y:none;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  /* 顶部大标题导航 */
+  .nav{
+    position:sticky; top:0; z-index:20;
+    padding:calc(env(safe-area-inset-top) + 8px) 16px 8px;
+    background:rgba(242,242,247,0.82);
+    backdrop-filter:saturate(180%) blur(20px);
+    -webkit-backdrop-filter:saturate(180%) blur(20px);
+    border-bottom:0.5px solid var(--sep);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .nav h1{font-size:32px; font-weight:700; margin:0; letter-spacing:0.3px;}
+  .nav .add{
+    width:32px; height:32px; border-radius:50%;
+    background:transparent; border:none; color:var(--blue);
+    font-size:30px; line-height:30px; font-weight:300; padding:0;
+  }
+  .nav .add:active{opacity:.4;}
+
+  .scroll{padding:14px 16px 40px; max-width:680px; margin:0 auto;}
+
+  /* 统计卡 */
+  .stats{
+    display:flex; gap:10px; margin-bottom:22px;
+  }
+  .stat{
+    flex:1; background:var(--card); border-radius:14px;
+    padding:14px 12px; text-align:center;
+    box-shadow:0 1px 2px rgba(0,0,0,0.04);
+  }
+  .stat .v{font-size:22px; font-weight:700; line-height:1.1;}
+  .stat .k{font-size:12px; color:var(--sub); margin-top:6px;}
+
+  /* 分组 */
+  .group{margin-bottom:26px;}
+  .group-h{
+    display:flex; justify-content:space-between; align-items:baseline;
+    padding:0 14px 7px; font-size:13px; color:var(--sub);
+    text-transform:uppercase; letter-spacing:0.4px;
+  }
+  .group-h .t{font-weight:600;}
+  .rows{
+    background:var(--card); border-radius:14px; overflow:hidden;
+  }
+  .row{
+    display:flex; align-items:center; padding:12px 14px;
+    position:relative; overflow:hidden;
+    border-bottom:0.5px solid var(--sep);
+  }
+  .row:last-child{border-bottom:none;}
+  .dot{
+    width:22px; height:22px; border-radius:50%; flex:none;
+    margin-right:12px; box-shadow:inset 0 0 0 1px rgba(0,0,0,0.08);
+  }
+  .row .main{flex:1; min-width:0;}
+  .row .nm{font-size:16px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .row .br{font-size:13px; color:var(--sub); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .row .right{text-align:right; flex:none; margin-left:10px;}
+  .row .pct{font-size:15px; font-weight:600;}
+  .row .wt{font-size:12px; color:var(--sub); margin-top:2px;}
+  .delbtn{
+    position:absolute; right:0; top:0; bottom:0; width:80px;
+    background:var(--red); color:#fff; border:none; font-size:15px;
+    transform:translateX(100%); transition:transform .18s;
+  }
+
+  .empty{
+    text-align:center; color:var(--sub); padding:60px 20px; font-size:15px;
+  }
+  .empty .big{font-size:46px; margin-bottom:10px;}
+
+  /* 底部数据工具 */
+  .tools{margin-top:6px;}
+  .tools .rows .row{justify-content:space-between;}
+  .tools .row .main{font-size:16px;}
+  .tools .arrow{color:var(--sub); font-size:16px;}
+
+  /* 底部弹出表单 */
+  .mask{
+    position:fixed; inset:0; background:rgba(0,0,0,0.4);
+    opacity:0; pointer-events:none; transition:opacity .25s; z-index:50;
+  }
+  .mask.show{opacity:1; pointer-events:auto;}
+  .sheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:60;
+    background:var(--bg); border-radius:18px 18px 0 0;
+    bottom:-110%; transition:bottom .3s cubic-bezier(.32,.72,0,1);
+    max-height:92vh; display:flex; flex-direction:column;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .sheet.show{bottom:0;}
+  .sheet .grab{
+    width:38px; height:5px; border-radius:3px; background:#c7c7cc;
+    margin:8px auto 4px;
+  }
+  .sheet .bar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:6px 16px 10px; border-bottom:0.5px solid var(--sep);
+  }
+  .sheet .bar .t{font-size:17px; font-weight:600;}
+  .sheet .bar button{background:none; border:none; font-size:17px; padding:4px 2px;}
+  .sheet .bar .cancel{color:var(--blue);}
+  .sheet .bar .save{color:var(--blue); font-weight:600;}
+  .sheet .body{
+    padding:14px 16px 24px; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  }
+  .field{margin-bottom:16px;}
+  .field > label{display:block; font-size:13px; color:var(--sub); margin:0 0 6px 2px;}
+  .field input[type=text], .field input[type=number], .field input[type=date],
+  .field select, .field textarea{
+    width:100%; font-size:16px; padding:11px 12px; border-radius:10px;
+    border:0.5px solid var(--sep); background:var(--card); color:var(--label);
+    font-family:inherit;
+  }
+  .field textarea{resize:vertical; min-height:70px;}
+  .row2{display:flex; gap:12px;}
+  .row2 .field{flex:1;}
+  .colorwrap{display:flex; align-items:center; gap:12px;}
+  .colorwrap input[type=color]{
+    width:48px; height:36px; border:none; background:none; padding:0; border-radius:8px;
+  }
+  .colorwrap .hex{font-size:15px; color:var(--sub);}
+  .delrow{margin-top:6px;}
+  .delrow button{
+    width:100%; padding:13px; border:none; border-radius:10px;
+    background:var(--card); color:var(--red); font-size:16px; font-weight:600;
+    border:0.5px solid var(--sep);
+  }
+  .delrow button:active{background:var(--tint);}
+  .hint{font-size:12px; color:var(--sub); margin-top:-6px; margin-bottom:14px; padding-left:2px;}
+</style>
+</head>
+<body>
+  <div class="nav">
+    <h1 id="title">耗材</h1>
+    <button class="add" id="addBtn" aria-label="新增">+</button>
+  </div>
+
+  <div class="scroll">
+    <div class="stats" id="stats"></div>
+    <div id="groups"></div>
+
+    <div class="tools">
+      <div class="group-h"><span class="t">数据</span></div>
+      <div class="rows">
+        <div class="row" id="exportBtn"><div class="main">导出备份 (JSON)</div><div class="arrow">›</div></div>
+        <div class="row" id="importBtn"><div class="main">导入备份 (JSON)</div><div class="arrow">›</div></div>
+        <div class="row" id="clearBtn"><div class="main" style="color:var(--red)">清空全部数据</div><div class="arrow">›</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mask" id="mask"></div>
+  <div class="sheet" id="sheet">
+    <div class="grab"></div>
+    <div class="bar">
+      <button class="cancel" id="cancelBtn">取消</button>
+      <div class="t" id="sheetTitle">新增耗材</div>
+      <button class="save" id="saveBtn">保存</button>
+    </div>
+    <div class="body">
+      <div class="field">
+        <label>名称</label>
+        <input type="text" id="f_name" placeholder="如 黑色 PLA 1kg" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>品牌</label>
+        <input type="text" id="f_brand" placeholder="如 创想三维 /  Polymaker" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>材质（自动分类依据）</label>
+        <select id="f_material">
+          <option value="PLA">PLA</option>
+          <option value="ABS">ABS</option>
+          <option value="PETG">PETG</option>
+          <option value="TPU">TPU</option>
+          <option value="树脂">树脂 (Resin)</option>
+          <option value="尼龙">尼龙 (Nylon)</option>
+          <option value="其他">其他 (Other)</option>
+          <option value="__custom">＋ 自定义…</option>
+        </select>
+        <input type="text" id="f_material_custom" placeholder="输入自定义材质" style="display:none; margin-top:8px;">
+      </div>
+      <div class="field">
+        <label>颜色</label>
+        <div class="colorwrap">
+          <input type="color" id="f_color" value="#1c1c1e">
+          <span class="hex" id="f_color_hex">#1C1C1E</span>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>总重量 (g)</label>
+          <input type="number" id="f_total" placeholder="1000" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label>剩余重量 (g)</label>
+          <input type="number" id="f_remain" placeholder="1000" inputmode="numeric">
+        </div>
+      </div>
+      <div class="field">
+        <label>购入日期</label>
+        <input type="date" id="f_date">
+      </div>
+      <div class="field">
+        <label>备注</label>
+        <textarea id="f_note" placeholder="存放位置 / 是否拆封 / 适用机型…"></textarea>
+      </div>
+      <div class="delrow" id="delRow" style="display:none;">
+        <button id="deleteBtn">删除此耗材</button>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="fileInput" accept="application/json" style="display:none;">
+
+<script>
+(function(){
+  "use strict";
+  var KEY = "filament_manager_v1";
+  var items = load();
+  var editingId = null;
+
+  // ---------- 持久化 ----------
+  function load(){
+    try{ return JSON.parse(localStorage.getItem(KEY)) || []; }
+    catch(e){ return []; }
+  }
+  function save(){ localStorage.setItem(KEY, JSON.stringify(items)); }
+
+  function uid(){
+    return Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+  }
+
+  // ---------- 渲染 ----------
+  function fmt(n){ n = Number(n)||0; return n.toLocaleString("en-US"); }
+
+  function groupByMaterial(){
+    var order = ["PLA","ABS","PETG","TPU","树脂","尼龙","其他"];
+    var map = {};
+    items.forEach(function(it){
+      var m = it.material || "其他";
+      if(!map[m]) map[m] = [];
+      map[m].push(it);
+    });
+    var keys = [];
+    order.forEach(function(m){ if(map[m]) keys.push(m); });
+    Object.keys(map).forEach(function(m){ if(keys.indexOf(m)<0) keys.push(m); });
+    return keys.map(function(m){
+      var sum = map[m].reduce(function(a,b){ return a + (Number(b.remain)||0); },0);
+      return { name:m, list:map[m], remain:sum };
+    });
+  }
+
+  function render(){
+    // 统计
+    var totalSpools = items.length;
+    var totalRemain = items.reduce(function(a,b){ return a + (Number(b.remain)||0); },0);
+    var totalUsed = items.reduce(function(a,b){
+      return a + Math.max(0,(Number(b.total)||0)-(Number(b.remain)||0));
+    },0);
+    document.getElementById("stats").innerHTML =
+      stat(totalSpools,"卷数") + stat(fmt(totalRemain)+" g","总余量") + stat(fmt(totalUsed)+" g","总已用");
+
+    // 分组
+    var groups = groupByMaterial();
+    var box = document.getElementById("groups");
+    if(totalSpools===0){
+      box.innerHTML = '<div class="empty"><div class="big">🧵</div>还没有耗材<br>点右上角 + 添加第一卷</div>';
+      return;
+    }
+    var html = "";
+    groups.forEach(function(g){
+      html += '<div class="group"><div class="group-h"><span class="t">'+esc(g.name)+
+              '</span><span>'+g.list.length+' 卷 · 余 '+fmt(g.remain)+' g</span></div><div class="rows">';
+      g.list.forEach(function(it){ html += rowHTML(it); });
+      html += '</div></div>';
+    });
+    box.innerHTML = html;
+  }
+
+  function stat(v,k){ return '<div class="stat"><div class="v">'+v+'</div><div class="k">'+k+'</div></div>'; }
+
+  function rowHTML(it){
+    var total = Number(it.total)||0, remain = Number(it.remain)||0;
+    var pct = total>0 ? Math.round(remain/total*100) : 0;
+    return '<div class="row" data-id="'+it.id+'">'+
+      '<span class="dot" style="background:'+esc(it.color||'#ccc')+'"></span>'+
+      '<div class="main"><div class="nm">'+esc(it.name||"（未命名）")+'</div>'+
+      '<div class="br">'+esc(it.brand||"")+(it.brand?'':'未填品牌')+'</div></div>'+
+      '<div class="right"><div class="pct">'+pct+'%</div>'+
+      '<div class="wt">余 '+fmt(remain)+' / '+fmt(total)+' g</div></div>'+
+      '<button class="delbtn" data-del="'+it.id+'">删除</button>'+
+    '</div>';
+  }
+
+  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+
+  // ---------- 交互：点击/滑动删除 ----------
+  var touchX = null, swipeEl = null;
+  document.getElementById("groups").addEventListener("click", function(e){
+    var del = e.target.closest("[data-del]");
+    if(del){ removeItem(del.getAttribute("data-del")); return; }
+    var row = e.target.closest(".row");
+    if(row){ openEdit(row.getAttribute("data-id")); }
+  });
+  // 简单滑动删除（向左滑露出删除）
+  document.getElementById("groups").addEventListener("touchstart", function(e){
+    var row = e.target.closest(".row");
+    swipeEl = row; touchX = e.touches[0].clientX;
+  }, {passive:true});
+  document.getElementById("groups").addEventListener("touchmove", function(e){
+    if(!swipeEl || touchX===null) return;
+    var dx = e.touches[0].clientX - touchX;
+    if(dx < -10){
+      var b = swipeEl.querySelector(".delbtn");
+      if(b) b.style.transform = "translateX(0)";
+    } else if(dx > 10){
+      var b2 = swipeEl.querySelector(".delbtn");
+      if(b2) b2.style.transform = "translateX(100%)";
+    }
+  }, {passive:true});
+  document.getElementById("groups").addEventListener("touchend", function(){
+    swipeEl = null; touchX = null;
+  });
+
+  // ---------- 表单 ----------
+  var sheet = document.getElementById("sheet");
+  var mask = document.getElementById("mask");
+
+  function openAdd(){
+    editingId = null;
+    document.getElementById("sheetTitle").textContent = "新增耗材";
+    document.getElementById("delRow").style.display = "none";
+    clearForm();
+    var d = new Date();
+    document.getElementById("f_date").value =
+      d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+    showSheet();
+  }
+  function openEdit(id){
+    var it = items.filter(function(x){return x.id===id;})[0];
+    if(!it) return;
+    editingId = id;
+    document.getElementById("sheetTitle").textContent = "编辑耗材";
+    document.getElementById("delRow").style.display = "block";
+    document.getElementById("f_name").value = it.name||"";
+    document.getElementById("f_brand").value = it.brand||"";
+    var sel = document.getElementById("f_material");
+    var opts = Array.prototype.map.call(sel.options,function(o){return o.value;});
+    if(opts.indexOf(it.material)>=0){ sel.value = it.material; }
+    else { sel.value = "__custom"; document.getElementById("f_material_custom").style.display="block";
+           document.getElementById("f_material_custom").value = it.material; }
+    document.getElementById("f_color").value = it.color||"#1c1c1e";
+    document.getElementById("f_color_hex").textContent = (it.color||"#1C1C1E").toUpperCase();
+    document.getElementById("f_total").value = it.total||"";
+    document.getElementById("f_remain").value = it.remain||"";
+    document.getElementById("f_date").value = it.date||"";
+    document.getElementById("f_note").value = it.note||"";
+    showSheet();
+  }
+  function clearForm(){
+    document.getElementById("f_name").value="";
+    document.getElementById("f_brand").value="";
+    var sel=document.getElementById("f_material"); sel.value="PLA";
+    document.getElementById("f_material_custom").style.display="none";
+    document.getElementById("f_material_custom").value="";
+    document.getElementById("f_color").value="#1c1c1e";
+    document.getElementById("f_color_hex").textContent="#1C1C1E";
+    document.getElementById("f_total").value="";
+    document.getElementById("f_remain").value="";
+    document.getElementById("f_note").value="";
+  }
+  function showSheet(){ mask.classList.add("show"); sheet.classList.add("show"); }
+  function hideSheet(){ mask.classList.remove("show"); sheet.classList.remove("show"); }
+
+  document.getElementById("addBtn").addEventListener("click", openAdd);
+  document.getElementById("cancelBtn").addEventListener("click", hideSheet);
+  mask.addEventListener("click", hideSheet);
+
+  // 材质选择器联动
+  document.getElementById("f_material").addEventListener("change", function(){
+    var c = document.getElementById("f_material_custom");
+    c.style.display = this.value==="__custom" ? "block" : "none";
+    if(this.value==="__custom") c.focus();
+  });
+  // 颜色
+  document.getElementById("f_color").addEventListener("input", function(){
+    document.getElementById("f_color_hex").textContent = this.value.toUpperCase();
+  });
+
+  document.getElementById("saveBtn").addEventListener("click", function(){
+    var name = document.getElementById("f_name").value.trim();
+    var matSel = document.getElementById("f_material");
+    var material = matSel.value==="__custom"
+      ? document.getElementById("f_material_custom").value.trim() || "其他"
+      : matSel.value;
+    var rec = {
+      name: name,
+      brand: document.getElementById("f_brand").value.trim(),
+      material: material,
+      color: document.getElementById("f_color").value,
+      total: Number(document.getElementById("f_total").value)||0,
+      remain: Number(document.getElementById("f_remain").value)||0,
+      date: document.getElementById("f_date").value,
+      note: document.getElementById("f_note").value.trim()
+    };
+    if(rec.remain > rec.total && rec.total>0){
+      if(!confirm("剩余重量大于总重量，仍要保存？")) return;
+    }
+    if(editingId){
+      var i = items.findIndex(function(x){return x.id===editingId;});
+      if(i>=0){ items[i] = Object.assign({}, items[i], rec); }
+    } else {
+      rec.id = uid();
+      rec.created = Date.now();
+      items.push(rec);
+    }
+    save(); render(); hideSheet();
+  });
+
+  document.getElementById("deleteBtn").addEventListener("click", function(){
+    if(editingId){ removeItem(editingId); hideSheet(); }
+  });
+
+  function removeItem(id){
+    if(!confirm("确定删除这卷耗材？")) return;
+    items = items.filter(function(x){return x.id!==id;});
+    save(); render();
+  }
+
+  // ---------- 数据工具 ----------
+  document.getElementById("exportBtn").addEventListener("click", function(){
+    var blob = new Blob([JSON.stringify(items,null,2)], {type:"application/json"});
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "filaments-"+new Date().toISOString().slice(0,10)+".json";
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+  });
+  document.getElementById("importBtn").addEventListener("click", function(){
+    document.getElementById("fileInput").click();
+  });
+  document.getElementById("fileInput").addEventListener("change", function(e){
+    var f = e.target.files[0]; if(!f) return;
+    var r = new FileReader();
+    r.onload = function(){
+      try{
+        var arr = JSON.parse(r.result);
+        if(!Array.isArray(arr)) throw 0;
+        if(!confirm("将导入 "+arr.length+" 条记录，覆盖当前数据？")) return;
+        arr.forEach(function(x){ if(!x.id) x.id = uid(); });
+        items = arr; save(); render();
+      }catch(err){ alert("文件格式错误，导入失败"); }
+    };
+    r.readAsText(f);
+    e.target.value = "";
+  });
+  document.getElementById("clearBtn").addEventListener("click", function(){
+    if(!confirm("确定清空全部耗材数据？此操作不可恢复。")) return;
+    items = []; save(); render();
+  });
+
+  // ---------- 启动 ----------
+  render();
+
+  // 注册 Service Worker（仅当通过 http(s)/localhost 提供服务时生效，用于离线）
+  if("serviceWorker" in navigator && location.protocol.indexOf("http")===0){
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("sw.js").catch(function(){ /* 忽略 */ });
+    });
+  }
+})();
+</script>
+</body>
+</html>

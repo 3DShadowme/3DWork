@@ -1,0 +1,16 @@
+{
+  "name": "3D 打印耗材管理",
+  "short_name": "耗材管理",
+  "display": "standalone",
+  "background_color": "#f2f2f7",
+  "theme_color": "#f2f2f7",
+  "start_url": "index.html",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
