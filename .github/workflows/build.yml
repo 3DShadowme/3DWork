@@ -25,7 +25,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y dpkg-dev zip
 
       - name: Build .tipa
-        run: cd app && make package FINALPACKAGE=1 && ./package_tipa.sh && bash ./package_tipa.sh
+        run: cd app && make package FINALPACKAGE=1 && ./package_tipa.sh
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
